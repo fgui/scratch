@@ -187,6 +187,12 @@ f-matrix
 
 ;; *monoid* is a Semigroup with an identity element (mempty).
 ;; in the following examtles maybe/nothing is the identity element.
+;; binary identity associative
+
+(m/mappend (m/mappend [1 2] [3 4]) [5 6])
+(m/mappend [1 2] (m/mappend [3 4] [5 6]))
+(m/mappend [] [1 2])
+(m/mappend [1 2] [])
 
 (m/mappend (maybe/just [1 2 3])
            (maybe/nothing))
@@ -200,6 +206,16 @@ f-matrix
            (maybe/nothing))
 
 ;; *functor*
+;; struture (list maybe...)
+;; preserves struture
+;; identity
+;; composition
+
+(m/fmap inc [1 2])
+(m/fmap inc [])
+;; composition
+(m/fmap (comp str inc) [1 2])
+(m/fmap str (m/fmap inc [1 2]))
 
 ;; maybe is a functor.
 ;; (fmap [f fv])
@@ -216,11 +232,146 @@ f-matrix
 
 (cats.context/with-context maybe/context (m/pure 1))
 
+(m/fapply [inc #(* % 10)] [1 2 3])
+(m/fapply [] [1 2 3])
+(m/fapply [inc #(* % 10)] [])
+
 (m/fapply (maybe/just (fn [i] (inc i))) (maybe/just 1))
 (m/fapply (maybe/just (fn [i] (inc i))) (maybe/nothing))
 (m/fapply (maybe/nothing) (maybe/just 1))
 
 
 ;; *foldable foldl foldr*
+(m/foldl (fn [acc v] (+ acc v)) 0 [1 2 3 4 5])
+(m/foldr (fn [v wc] (+ v wc)) 0 [1 2 3 4 5])
+
+;; foldm - aware of monad context function
+(m/foldm (fn [x y] (maybe/just (+ x y))) 0 [1 2 3])
+
+;; traversal
+;; structures that can be traversed from left to right running
+;; an applicative action for each element.
+
+(defn just-if-even [n]
+  (if (even? n)
+    (maybe/just n)
+    (maybe/nothing)))
+
+(require '[cats.context :as ctx])
+
+(ctx/with-context maybe/context
+  (m/traverse just-if-even []))
+
+(ctx/with-context maybe/context
+  (m/traverse just-if-even [1 2]))
+
+(ctx/with-context maybe/context
+  (m/traverse just-if-even [4 2]))
+
+;; monads
+;; bind [mv f]  --> like functor but with inverted parameters
+;; return
+(m/bind (maybe/just 1)
+        (fn [v] (maybe/just (inc v))))
+
+(m/bind (maybe/just 1)
+        (fn [v] (m/return (inc v))))
+
+(m/bind (maybe/just 1)
+        (fn [a] (m/bind (maybe/just (inc a))
+                        (fn [b] (m/return (* b 2))))))
+
+(m/mlet [a (maybe/just 1)
+        b (maybe/just (inc a))]
+        (m/return (* b 2)))
+
+;; identity value of a monad will shortcut
+
+(m/mzero maybe/context)
+
+(m/mlet [a (maybe/just 1)
+         :when (= a 2)]
+        (m/return (* a 2)))
+(m/mlet [a (maybe/just 2)
+         :when (= a 2)]
+        (m/return (* a 2)))
+
+;; monad plus supports associative binary operation
+
+;; mplus for maybe similar to or
+(m/mplus (maybe/nothing) (maybe/just 1))
+(m/mplus (maybe/just 2) (maybe/just 1))
+
+
+(m/bind [1 2 3]
+        (fn [v] (m/mzero)))
+
+(m/bind [1 2 3]
+        (fn [v] (m/return (inc v))))
+
+(m/mplus [1] [2 3])
+
+;; deref maybe
+(maybe/from-maybe (maybe/just 1))
+@(maybe/just 1)
+@(maybe/nothing)
+
+;; fmap <$>
+(m/<$> inc [1 2 3])
+(m/fmap inc [1 2 3])
+
+;;aplicative functor with alet
+(m/alet [a (maybe/just [1 2 3])
+         b (maybe/just [4 5 6])]
+        (m/mappend a b))
+
+
+;; exceptions
+(require '[cats.monad.exception :as exc])
+
+
+(exc/try-on 1)
+
+(exc/try-on (+ 1 nil))
+
+(exc/try-or-else (+ 1 nil) 2)
+
+(exc/try-or-recover (+ 1 nil)
+                    (fn [e]
+                      (cond
+                        (instance? NullPointerException e) 0
+                        :else 100)))
+
+(exc/try-or-recover (/ 1 0)
+                    (fn [e]
+                      (cond
+                        (instance? NullPointerException e) 0
+                        :else 100)))
+
+
+(def f (exc/try-on (+ 1 nil)))
+(m/fmap inc f)
+@f  ;;throws the exception
+
+(def f (exc/try-on (inc 0)))
+(m/fmap inc f)
+@f  ;;throws the exception
+
 
 ;; </funcool>
+
+;; <look and say>
+
+(defn next-step [s]
+  (flatten (reduce (fn [acc val]
+                     (let [[num-elems x] (last acc)]
+                       (if (= val x)
+                         (assoc acc (dec (count acc)) [(inc num-elems) x])
+                         (conj acc [1 val]))
+                       )
+                     )
+                   [[1 (first s)]] (rest s))))
+
+(take 10 (iterate next-step [1]))
+
+;; </look and say>
