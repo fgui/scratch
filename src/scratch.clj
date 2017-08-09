@@ -35,13 +35,11 @@
 
 ;; on postwalk the no leaf nodes have been modified on visit
 (w/postwalk #(do
-              (println %)
-              (if (number? %) (inc %) %))
+               (println %)
+               (if (number? %) (inc %) %))
             [[1 2 3]
              [4 5 6]
              [7 8 9]])
-
-
 
 ;; </basic core>
 
@@ -58,12 +56,12 @@
    :en-us "vocabularies/en-us"})
 
 (str "language options: "
-     (clojure.string/join " "(map name (keys languages))))
+     (clojure.string/join " " (map name (keys languages))))
 
 ;; 2d matrix -- flat
 
 (def sample-matrix [[1 2 3]
-                [4 5 6]])
+                    [4 5 6]])
 
 (def f-matrix (flatten sample-matrix))
 
@@ -85,17 +83,16 @@ f-matrix
 
 (defn neighbords [max-x max-y [x y]]
   (filter (fn [[a b]] (and (< -1 a max-x) (< -1 b max-y)))
-   (map (fn [[inc-x inc-y]] [(+ x inc-x) (+ y inc-y)])
-        neighbord-coordinates)))
+          (map (fn [[inc-x inc-y]] [(+ x inc-x) (+ y inc-y)])
+               neighbord-coordinates)))
 
 (map (partial coordinates->flat-idx 3)
- (neighbords 4 4 [0 0]))
+     (neighbords 4 4 [0 0]))
 
 (and
  (= (get f-matrix 3 [1 0]) 2)
  (= (get f-matrix 3 [1 1]) 5)
  (= (get f-matrix 3 [0 1]) 4))
-
 
 ;; playing with specs
 (require '[clojure.spec.alpha :as s])
@@ -138,7 +135,7 @@ f-matrix
            :lastname "Jungle"})
 
 (s/def :unq/person (s/keys :req-un [::name ::lastname]
-                        :opt-un [::phone]))
+                           :opt-un [::phone]))
 
 (s/valid? :unq/person
           {:name "Jorge"
@@ -165,7 +162,6 @@ f-matrix
             :into #{})
            [:a :b :c])
 
-
 ;; <test>
 ;; playing with test
 (require '[clojure.test :as test])
@@ -175,7 +171,6 @@ f-matrix
     (test/is (= "blah" 1))))
 
 (blah-test-fail)
-
 
 (test/deftest test-are
   (test/are [x y] (= 5 (+ x y))
@@ -195,8 +190,6 @@ f-matrix
 ;;C-c C-m hh p ap add project dependency seems only works with leiningen.
 (require '[cats.core :as m])
 (require '[cats.builtin])
-
-
 
 ;; *semigroup* is an algebraic structure with an associative binary operation (mappend)
 
@@ -265,7 +258,6 @@ f-matrix
 (m/fapply (maybe/just (fn [i] (inc i))) (maybe/nothing))
 (m/fapply (maybe/nothing) (maybe/just 1))
 
-
 ;; *foldable foldl foldr*
 (m/foldl (fn [acc v] (+ acc v)) 0 [1 2 3 4 5])
 (m/foldr (fn [v wc] (+ v wc)) 0 [1 2 3 4 5])
@@ -307,7 +299,7 @@ f-matrix
                         (fn [b] (m/return (* b 2))))))
 
 (m/mlet [a (maybe/just 1)
-        b (maybe/just (inc a))]
+         b (maybe/just (inc a))]
         (m/return (* b 2)))
 
 ;; identity value of a monad will shortcut
@@ -326,7 +318,6 @@ f-matrix
 ;; mplus for maybe similar to or
 (m/mplus (maybe/nothing) (maybe/just 1))
 (m/mplus (maybe/just 2) (maybe/just 1))
-
 
 (m/bind [1 2 3]
         (fn [v] (m/mzero)))
@@ -350,10 +341,8 @@ f-matrix
          b (maybe/just [4 5 6])]
         (m/mappend a b))
 
-
 ;; exceptions
 (require '[cats.monad.exception :as exc])
-
 
 (exc/try-on 1)
 
@@ -373,7 +362,6 @@ f-matrix
                         (instance? NullPointerException e) 0
                         :else 100)))
 
-
 (def f (exc/try-on (+ 1 nil)))
 (m/fmap inc f)
 @f  ;;throws the exception
@@ -392,9 +380,7 @@ f-matrix
                      (let [[num-elems x] (last acc)]
                        (if (= val x)
                          (assoc acc (dec (count acc)) [(inc num-elems) x])
-                         (conj acc [1 val]))
-                       )
-                     )
+                         (conj acc [1 val]))))
                    [[1 (first s)]] (rest s))))
 
 (take 10 (iterate next-step [1]))
@@ -410,20 +396,17 @@ f-matrix
      (when (number? y#)
        (* y# y#))))
 
-
 (macroexpand '(square (rand-int 10)))
 (macroexpand-1 '(square (rand-int 10)))
 (clojure.walk/macroexpand-all '(square (rand-int 10)))
 
 (square (rand-int 10))
 
-
 (defmacro when* [test & body]
   `(if ~test
      (do
        ~@body)
-     nil
-     ))
+     nil))
 
 (when* (even? 3) (println 3) 3)
 (when* (even? 2) (println 2) 2)
@@ -442,8 +425,8 @@ f-matrix
                  (apply str (first words)
                         (map clojure.string/capitalize (rest words))))
    :pascal-case (fn [words]
-                 (apply str
-                        (map clojure.string/capitalize words)))})
+                  (apply str
+                         (map clojure.string/capitalize words)))})
 
 (defn extract-words [a-str]
   (map clojure.string/lower-case
@@ -458,7 +441,6 @@ f-matrix
    ((to-format format-functions))
    keyword))
 
-
 (test/deftest keyword-to-x-case-tests
   (test/are [x y] (= x y)
     (format :hello-koko :using :camel-case) :helloKoko
@@ -468,5 +450,4 @@ f-matrix
     (format :helloKoko :using :kebab-case) :hello-koko))
 
 (keyword-to-x-case-tests)
-
 
