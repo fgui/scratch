@@ -441,8 +441,8 @@ f-matrix
    ((to-format format-functions))
    keyword))
 
-(test/deftest keyword-to-x-case-tests
-  (test/are [x y] (= x y)
+(clojure.test/deftest keyword-to-x-case-tests
+  (clojure.test/are [x y] (= x y)
     (format :hello-koko :using :camel-case) :helloKoko
     (format :hello-koko :using :snake-case) :hello_koko
     (format :hello-koko :using :pascal-case) :HelloKoko
