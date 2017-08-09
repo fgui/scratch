@@ -19,6 +19,28 @@
 ;; cider C-c C-d options
 ;; </documentation>
 
+;;<clojure.walk>
+
+(require '[clojure.walk :as w])
+
+;; similar to a map + function on result
+(w/walk #(* % 10) #(apply + %) [1 2 3])
+
+(w/prewalk #(do
+              (println %)
+              (if (number? %) (inc %) %))
+           [[1 2 3]
+            [4 5 6]
+            [7 8 9]])
+
+;; on postwalk the no leaf nodes have been modified on visit
+(w/postwalk #(do
+              (println %)
+              (if (number? %) (inc %) %))
+            [[1 2 3]
+             [4 5 6]
+             [7 8 9]])
+
 
 
 ;; </basic core>
@@ -224,6 +246,9 @@ f-matrix
 (m/fmap inc (maybe/just 1))
 (m/fmap inc (maybe/nothing))
 
+(m/fmap inc {:key1 1 :key2 2})
+(map (fn [[k v]] [k v]) {:key1 1 :key2 2})
+
 ;; *applicative*
 
 ;; (fapply [af av])
@@ -375,3 +400,73 @@ f-matrix
 (take 10 (iterate next-step [1]))
 
 ;; </look and say>
+
+;; <macro>
+(defmacro square [x]
+  (list '* x x))
+
+(defmacro square [x]
+  `(let [y# ~x]
+     (when (number? y#)
+       (* y# y#))))
+
+
+(macroexpand '(square (rand-int 10)))
+(macroexpand-1 '(square (rand-int 10)))
+(clojure.walk/macroexpand-all '(square (rand-int 10)))
+
+(square (rand-int 10))
+
+
+(defmacro when* [test & body]
+  `(if ~test
+     (do
+       ~@body)
+     nil
+     ))
+
+(when* (even? 3) (println 3) 3)
+(when* (even? 2) (println 2) 2)
+
+(macroexpand '(when* (even? x) (println x) x))
+
+;; https://gist.github.com/trikitrok/a97d330bacb1f56fe5ee027c12ff273a
+(require '[clojure.test :as test])
+
+(def format-functions
+  {:snake-case (fn [words]
+                 (clojure.string/join "_" words))
+   :kebab-case (fn [words]
+                 (clojure.string/join "-" words))
+   :camel-case (fn [words]
+                 (apply str (first words)
+                        (map clojure.string/capitalize (rest words))))
+   :pascal-case (fn [words]
+                 (apply str
+                        (map clojure.string/capitalize words)))})
+
+(defn extract-words [a-str]
+  (map clojure.string/lower-case
+       (filter #(not (#{"-" "_"} %))
+               (re-seq #"[A-Z]?[a-z]+|-|_" a-str))))
+
+(defn format [key _ to-format]
+  (->
+   key
+   name
+   extract-words
+   ((to-format format-functions))
+   keyword))
+
+
+(test/deftest keyword-to-x-case-tests
+  (test/are [x y] (= x y)
+    (format :hello-koko :using :camel-case) :helloKoko
+    (format :hello-koko :using :snake-case) :hello_koko
+    (format :hello-koko :using :pascal-case) :HelloKoko
+    (format :hello-koko :using :kebab-case) :hello-koko
+    (format :helloKoko :using :kebab-case) :hello-koko))
+
+(keyword-to-x-case-tests)
+
+
