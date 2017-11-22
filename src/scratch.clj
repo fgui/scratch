@@ -2,19 +2,21 @@
 ;; https://www.clojure.org/api/cheatsheet
 
 ;; <documentation>
-(doc doc)
-(doc find-doc)
-(find-doc "partition")
-(apropos "partition")
-(apropos "match")
-(doc dir)
-(dir user)
-(dir clojure.set)
+(require '[clojure.repl :as repl])
+
+(repl/doc repl/doc)
+(repl/doc repl/find-doc)
+(repl/find-doc "partition")
+(repl/apropos "partition")
+(repl/apropos "match")
+(repl/doc repl/dir)
+(repl/dir repl)
+(repl/dir clojure.set)
 (/ 1 0)
 ;; print stack trace
-(pst *e)
+(repl/pst *e)
 ;; opens in browser
-(javadoc "java.util.Date")
+(clojure.java.javadoc/javadoc "java.util.Date")
 
 ;; cider C-c C-d options
 ;; </documentation>
@@ -62,7 +64,6 @@
 
 (def sample-matrix [[1 2 3]
                     [4 5 6]])
-
 (def f-matrix (flatten sample-matrix))
 
 f-matrix
@@ -94,73 +95,6 @@ f-matrix
  (= (get f-matrix 3 [1 1]) 5)
  (= (get f-matrix 3 [0 1]) 4))
 
-;; playing with specs
-(require '[clojure.spec.alpha :as s])
-
-(s/conform even? 1000)
-(s/valid? even? 1000)
-
-(s/def ::day #{:mon :tue :wed :thu :fri :sat :sun})
-(s/valid? ::day :fri)
-
-(s/def ::name-or-id (s/or :name string?
-                          :id   int?))
-
-(s/conform ::name-or-id 12)
-(s/conform ::name-or-id "12")
-(s/conform ::name-or-id :keyword)
-(s/explain ::name-or-id :keyword)
-(def phone-regex #"^[0-9 ]*$")
-(s/def ::phone (s/and string? #(re-matches phone-regex %)))
-(s/valid? ::phone "93 666 66 66")
-(s/def ::name string?)
-(s/def ::lastname string?)
-
-(s/def ::person (s/keys :req [::name ::lastname]
-                        :opt [::phone]))
-
-(s/valid? ::person
-          {::name "Jorge"
-           ::lastname "Jungle"})
-
-;; extra-key is still valid
-(s/valid? ::person
-          {::name "Jorge"
-           ::lastname "Jungle"
-           ::extra-key "doesn't matter"})
-
-;; non-qualified no valid
-(s/valid? ::person
-          {:name "Jorge"
-           :lastname "Jungle"})
-
-(s/def :unq/person (s/keys :req-un [::name ::lastname]
-                           :opt-un [::phone]))
-
-(s/valid? :unq/person
-          {:name "Jorge"
-           :lastname "Jungle"})
-
-(defrecord Person [name lastname phone])
-
-(s/valid? :unq/person (->Person "Jorge" "Jungle" "666 66"))
-
-(s/def ::class string?)
-
-(s/def ::teacher (s/merge
-                  ::person
-                  (s/keys :req [::class])))
-
-(s/conform ::teacher {::name "Jorge"
-                      ::lastname "Jungle"
-                      ::class "Gym"})
-
-(s/conform (s/coll-of
-            keyword?
-            :count 3
-            :distinct true
-            :into #{})
-           [:a :b :c])
 
 ;; <test>
 ;; playing with test
@@ -434,20 +368,17 @@ f-matrix
                (re-seq #"[A-Z]?[a-z]+|-|_" a-str))))
 
 (defprotocol FormatCase
-  (format-case [data verb to-format]))
+  (format-case [this verb to-format]))
 
 (extend clojure.lang.Keyword
   FormatCase
-  {
-   :format-case (fn [data _ to-format]
+  {:format-case (fn [this _ to-format]
                   (->
-                   data
+                   this
                    name
                    extract-words
                    ((to-format format-functions))
                    keyword))})
-
-
 
 (format-case :hello-koko :using :camel-case)
 
@@ -461,57 +392,41 @@ f-matrix
 
 (keyword-to-x-case-tests)
 
-(extend clojure.lang.Keyword
-  FormatCase
-  {
-   :format-case (fn [data _ to-format]
-                  (->
-                   data
-                   name
-                   extract-words
-                   ((to-format format-functions))
-                   keyword))})
-
 (clojure.test/deftest keyword-to-x-case-box-tests
-  (clojure.test/are [x y] (= x y) 
-   (format-case [:hello-koko :hello_koko] :using :camel-case)  [:helloKoko :helloKoko]
-   (format-case #{:hello-koko :hello_koko} :using :camel-case)  #{:helloKoko}
-   (format-case {:hello-koko 1 :HelloLolo :hello_koko} :using :camel-case) {:helloKoko 1 :helloLolo :helloKoko}))
+  (clojure.test/are [x y] (= x y)
+    (format-case [:hello-koko :hello_koko] :using :camel-case)  [:helloKoko :helloKoko]
+    (format-case #{:hello-koko :hello_koko} :using :camel-case)  #{:helloKoko}
+    (format-case {:hello-koko 1 :HelloLolo :hello_koko} :using :camel-case) {:helloKoko 1 :helloLolo :helloKoko}))
 
 (keyword-to-x-case-box-tests)
 
 (extend java.lang.Object
   FormatCase
-  {
-   :format-case (fn [this x to-format]
+  {:format-case (fn [this x to-format]
                   this)})
 
 (extend clojure.lang.APersistentSet
   FormatCase
-  {
-   :format-case (fn [this x to-format]
+  {:format-case (fn [this x to-format]
                   (set (map #(format-case % x to-format) this)))})
 
 (extend clojure.lang.APersistentVector
   FormatCase
-  {
-   :format-case (fn [this x to-format]
+  {:format-case (fn [this x to-format]
                   (mapv #(format-case % x to-format) this))})
 
 (extend clojure.lang.APersistentMap
   FormatCase
-  {
-   :format-case (fn [this x to-format]
+  {:format-case (fn [this x to-format]
                   (into {} (map (fn [[k v]]
-                                 [(format-case k x to-format)
-                                  (format-case v x to-format)]) this)))})
-
+                                  [(format-case k x to-format)
+                                   (format-case v x to-format)]) this)))})
 
 (clojure.test/deftest keyword-to-x-case-recur-tests
-  (clojure.test/are [x y] (= x y) 
+  (clojure.test/are [x y] (= x y)
     (format-case [:hello-koko :hello_koko #{:hello-koko :hello_koko}
                   {:hello-koko 1 :HelloLolo :hello_koko}]
-                 :using :camel-case )  [:helloKoko :helloKoko #{:helloKoko} {:helloKoko 1 :helloLolo :helloKoko}]))
+                 :using :camel-case)  [:helloKoko :helloKoko #{:helloKoko} {:helloKoko 1 :helloLolo :helloKoko}]))
 
 (keyword-to-x-case-recur-tests)
 
@@ -529,6 +444,7 @@ f-matrix
 (inc 255.16)
 (+ 1 255.16)
 (+ 0 256.16)
+(+ 2.0 2.0)
 
 (reduce + numbers-big-decimal)
 
@@ -538,32 +454,27 @@ f-matrix
 (def looking-for 199.25M)
 
 (time (set (for [x numbers-big-decimal
-                y numbers-big-decimal
-                :when (= looking-for (+ x y))]
-            (sort[x y]))))
-
-
-
+                 y numbers-big-decimal
+                 :when (= looking-for (+ x y))]
+             (sort [x y]))))
 
 ;; this takes longer that I expected (42 seconds aprox) and it produces a lot of options.
-(time 
+(time
  (set (for [x numbers-big-decimal
             y numbers-big-decimal
             z numbers-big-decimal
             :when (= looking-for (+ x y z))]
-        (sort[x y z]))))
-
+        (sort [x y z]))))
 
 ;; shortcutting a bit on the when takes 36 seconds
-(time 
+(time
  (set (for [x numbers-big-decimal
             y numbers-big-decimal
             z numbers-big-decimal
             :when (and (< x looking-for)
                        (< (+ x y) looking-for)
                        (= looking-for (+ x y z)))]
-        (sort[x y z]))))
-
+        (sort [x y z]))))
 
 (count numbers-big-decimal)
 (count (filter #(<= % looking-for) numbers-big-decimal))
@@ -575,10 +486,10 @@ f-matrix
  (for [[x y] (set (for [x numbers-big-decimal
                         y numbers-big-decimal
                         :when (>= looking-for (+ x y))]
-                    (sort[x y])))
+                    (sort [x y])))
        z (filter #(<= % looking-for) numbers-big-decimal)
        :when (= looking-for (+ x y z))]
-   (sort[x y z])))
+   (sort [x y z])))
 
 ;; yes using let is less time 140ms aprox.
 (time
@@ -586,10 +497,10 @@ f-matrix
    (for [[x y] (set (for [x numbers-big-decimal
                           y numbers-big-decimal
                           :when (>= looking-for (+ x y))]
-                      (sort[x y])))
+                      (sort [x y])))
          z candidate-numbers
          :when (= looking-for (+ x y z))]
-     (sort[x y z]))))
+     (sort [x y z]))))
 
 ;; finally since we have the let we can use candidates everywhere
 (time
@@ -597,10 +508,10 @@ f-matrix
    (for [[x y] (set (for [x candidate-numbers
                           y candidate-numbers
                           :when (>= looking-for (+ x y))]
-                      (sort[x y])))
+                      (sort [x y])))
          z candidate-numbers
          :when (= looking-for (+ x y z))]
-     (sort[x y z]))))
+     (sort [x y z]))))
 
 ;; introduce number 0 to have also the 1,2 or 3 digits.
 (time
@@ -608,10 +519,10 @@ f-matrix
    (for [[x y] (set (for [x candidate-numbers
                           y candidate-numbers
                           :when (>= looking-for (+ x y))]
-                      (sort[x y])))
+                      (sort [x y])))
          z candidate-numbers
          :when (= looking-for (+ x y z))]
-     (sort[x y z]))))
+     (sort [x y z]))))
 
 ;; sort results by first
 (time
@@ -620,14 +531,501 @@ f-matrix
             (for [[x y] (set (for [x candidate-numbers
                                    y candidate-numbers
                                    :when (>= looking-for (+ x y))]
-                               (sort[x y])))
+                               (sort [x y])))
                   z candidate-numbers
                   :when (= looking-for (+ x y z))]
-              (sort[x y z])))))
-
+              (sort [x y z])))))
 
 ;;test remove it doesn't conserve the "box" set returns a lazyseq.
 (let [r (remove #{"env/dev"} #{"src" "env/dev"})]
   (println (type r))
   r)
+
+;; play with multimethods
+
+(defmulti dep-class (fn [re _ to] (class re)))
+
+(defmethod dep-class String [re _ to]
+  to)
+
+(dep-class "hola" 1 2)
+
+(sequential? [1 2])
+
+(sequential? '(1 2))
+
+(sequential? "")
+
+(into {} (map identity {:a 1}))
+
+(mapv identity (first (map identity {:a 1})))
+
+;; playing with macros
+;; fizzbuzz
+
+(defn fizzbuzz [n]
+  (cond
+    (zero? (mod n 15)) "fizzbuzz"
+    (zero? (mod n 5)) "buzz"
+    (zero? (mod n 3)) "fizz"
+    :else n))
+
+(defn fizzbuzz [n]
+  (case [(zero? (mod n 3)) (zero? (mod n 5))]
+    [true true] "fizzbuzz"
+    [false true] "buzz"
+    [true false] "fizz"
+    [false false] n))
+
+(map fizzbuzz (range 1 31))
+
+;; the macro that returns dhe value directly evaluates 
+(defmacro fizzbuzz-mvalue [n]
+  (cond
+    (zero? (mod n 15)) "fizzbuzz"
+    (zero? (mod n 5)) "buzz"
+    (zero? (mod n 3)) "fizz"
+    :else n))
+
+(fizzbuzz-mvalue 3)
+(macroexpand `(fizzbuzz-mvalue 2))
+;; following fails
+#_(fn [x] (fizzbuzz-mvalue x))
+
+;; macro spits the code to execute
+(defmacro fizzbuzz-mcode1 [n]
+  `(cond
+     (zero? (mod ~n 15)) "fizzbuzz"
+     (zero? (mod ~n 5)) "buzz"
+     (zero? (mod ~n 3)) "fizz"
+     :else ~n))
+
+;; this macro evaluates n 4 times in some case
+
+(fizzbuzz-mcode1 (do (println "evaluating") (rand-int 100)))
+
+;;the followint evalutes n once it seems ok to me
+(defmacro fizzbuzz-mcode2 [n]
+  `(let [x# ~n]
+     (cond
+       (zero? (mod x# 15)) "fizzbuzz"
+       (zero? (mod x# 5)) "buzz"
+       (zero? (mod x# 3)) "fizz"
+       :else x#)))
+
+(fizzbuzz-mcode2 (do (println "evaluating") (rand-int 100)))
+
+(macroexpand `(fizzbuzz-mcode2 2))
+
+((fn [x] (fizzbuzz-mcode2 x)) 2)
+
+(+ 1 1)
+
+(map fizzbuzz (range 1 31))
+(map #(fizzbuzz-mcode2 %) (range 1 31))
+
+;; macro
+;; for angels call function with symbol name (from keyword)
+
+(def add +)
+
+(defmacro call-keyword [kw & args]
+  `(~(symbol (str (-> #'call-keyword meta :ns)) (name kw)) ~@args))
+
+(macroexpand `(call-keyword :add 1 2))
+
+(call-keyword :add 1 2 3 4)
+
+;; the equivalent in code
+(defn call-keyword-2 [kw & args]
+  (apply (resolve (symbol (str (-> #'call-keyword-2 meta :ns)) (name kw))) args))
+
+(call-keyword-2 :add 1 2 3 4)
+
+(symbol (name :add))
+
+;; clojure specs - robust program - communication - better error reporting - better testing - flexible programs
+;; most our programs are about data and functions on data.
+
+
+(def new-words
+  ["abaratir"
+   "abast"
+   "abonyegar"
+   "acabàvem"
+   "acostumar"
+   "acovardir"
+   "acudit"
+   "adhesiu"
+   "admetre"
+   "adob"
+   "aixeta"
+   "ajornat"
+   "allau"
+   "aigües"
+   "alletar"
+   "alleujat"
+   "Alliberat"
+   "allotjar"
+   "amanida"
+   "ambre"
+   "àncora"
+   "angoixa"
+   "angúnia"
+   "ànim"
+   "aniré"
+   "aniversari"
+   "antigues"
+   "aparença"
+   "aplaudiment"
+   "aprovava"
+   "àrbitre"
+   "arrabassar"
+   "arribar"
+   "arribava"
+   "arribaven"
+   "arrissar"
+   "arròs"
+   "arrossegar"
+   "assabentar-se"
+   "assassina"
+   "assetjar"
+   "asseure"
+   "atabalar"
+   "atenció"
+   "avançar"
+   "avar"
+   "àvia"
+   "avorrit"
+   "bajanada"
+   "barnús"
+   "bassal"
+   "batre"
+   "bena"
+   "bèstia"
+   "beuríeu"
+   "biologia"
+   "bombeta"
+   "borinot"
+   "bossa"
+   "braç"
+   "bressol"
+   "bústia"
+   "cabell"
+   "cadenat"
+   "calçotets"
+   "cambrera"
+   "canonada"
+   "canvi"
+   "capaç"
+   "capbussat"
+   "càstig"
+   "catifa"
+   "cavall"
+   "cendra"
+   "cervell"
+   "cingle"
+   "codonyat"
+   "coŀlecció"
+   "coŀlegi"
+   "colònia"
+   "colze"
+   "comiat"
+   "companyonia"
+   "comprendre"
+   "compte"
+   "comte"
+   "conèixer"
+   "connexió"
+   "conte"
+   "convèncer"
+   "conversa"
+   "convidava"
+   "covard"
+   "crossa"
+   "dansa"
+   "decebre"
+   "decisió"
+   "delinqüència"
+   "descompte"
+   "desenvolupar"
+   "Desfilada"
+   "desitjar"
+   "després"
+   "destí"
+   "dissabte"
+   "dotzena"
+   "eixerit"
+   "elèctric"
+   "embarassada"
+   "embarcació"
+   "embenar"
+   "embolic"
+   "empaitar"
+   "empremta"
+   "emprovar"
+   "encenalls"
+   "encenedor"
+   "enciam"
+   "enderrocar"
+   "endoll"
+   "endreçar"
+   "ensinistrar"
+   "ensurt"
+   "entrepà"
+   "entreveure"
+   "enuig"
+   "enveja"
+   "enviàvem"
+   "enyorança"
+   "error"
+   "escletxa"
+   "escombraries"
+   "escuma"
+   "és"
+   "escuradents"
+   "esdeveniment"
+   "esgotar"
+   "esmorzar"
+   "espantar"
+   "espatlla"
+   "espavilada"
+   "espècie"
+   "espelma"
+   "esquinç"
+   "esquitxar"
+   "estalviar"
+   "estavellar-se"
+   "estàvem"
+   "estella"
+   "estómac"
+   "estranger"
+   "estrany"
+   "estruç"
+   "esvalotar"
+   "examen"
+   "exàmens"
+   "exceŀlent"
+   "excursió"
+   "exercici"
+   "exhaurit"
+   "èxit"
+   "fàcil"
+   "farinetes "
+   "farmàcia"
+   "farmaciola"
+   "fàstic"
+   "física"
+   "fracàs"
+   "fredolic"
+   "gàbia"
+   "gairebé"
+   "genet"
+   "genoll"
+   "gerd"
+   "glaçó"
+   "gràfic"
+   "grandària"
+   "gras"
+   "gratacels"
+   "groller"
+   "gronxador"
+   "grossa"
+   "guardiola"
+   "guerres"
+   "guineu"
+   "habitació"
+   "hauràs"
+   "hauríem"
+   "haver de"
+   "havia"
+   "havíem"
+   "heroïna"
+   "hivern"
+   "hostal"
+   "hoste"
+   "hi ha"
+   "impossible"
+   "indústria"
+   "injecció"
+   "inscriure'm"
+   "inserir"
+   "invasió"
+   "inventar"
+   "iogurt"
+   "Israelià"
+   "joguina"
+   "jove"
+   "justícia"
+   "jutjat"
+   "línia"
+   "llàgrima"
+   "llavis"
+   "llavors"
+   "llegenda"
+   "lleig"
+   "llengües"
+   "lleuger"
+   "llimac"
+   "lloguer"
+   "lluç"
+   "lluny"
+   "maduixes"
+   "majoria"
+   "malaltia"
+   "màniga"
+   "màquina"
+   "maragda"
+   "mareig"
+   "matalàs"
+   "matança"
+   "memòria"
+   "mentides"
+   "metge"
+   "milions"
+   "minvar"
+   "missió"
+   "misteriós"
+   "mitjana"
+   "mòbil"
+   "molèstia"
+   "muntanya"
+   "múscul"
+   "mussol"
+   "naixement"
+   "navegació"
+   "nodrir-se"
+   "notícies"
+   "noveŀla"
+   "número"
+   "nuvi"
+   "núvia"
+   "ombra"
+   "orfe"
+   "pagès"
+   "països"
+   "pàŀlida"
+   "pallasso"
+   "pantalons"
+   "Paradís"
+   "Paràgraf"
+   "paraigües"
+   "passadís"
+   "passeig"
+   "pastisseria"
+   "peixeteria"
+   "peŀlícula"
+   "penya-segat"
+   "perquè"
+   "pidolaire"
+   "pinça"
+   "piscina"
+   "plàstic"
+   "plàtan"
+   "porcellana"
+   "poruc"
+   "precipici"
+   "prémer"
+   "presència"
+   "préssec"
+   "príncep"
+   "prohibir"
+   "provar"
+   "públic"
+   "punxades"
+   "quaranta-quatre"
+   "quasi"
+   "qüestions"
+   "quilòmetre"
+   "quotidià"
+   "raça"
+   "ràfega"
+   "rasa"
+   "ratolins"
+   "rebombori"
+   "rebost"
+   "rebuig"
+   "rebutjar"
+   "reciclatge"
+   "recórrer"
+   "referència"
+   "reforçar"
+   "rellotge"
+   "renec"
+   "retard"
+   "rètol"
+   "revenja"
+   "revolt"
+   "revolta"
+   "rovelló"
+   "ruïnes"
+   "sagnar"
+   "salvatge"
+   "saviesa"
+   "segell"
+   "seient"
+   "seny"
+   "són"
+   "seriós"
+   "setrilleres"
+   "síŀlaba"
+   "singlot"
+   "sínia"
+   "sinònim"
+   "sòlid"
+   "solució"
+   "sort"
+   "taüt"
+   "tèbia"
+   "tecnològic"
+   "telèfon"
+   "temptació"
+   "teranyina"
+   "terratrèmol"
+   "tibem"
+   "títol"
+   "tònica"
+   "Tornavís"
+   "torneig"
+   "traïdor"
+   "trair"
+   "travessen"
+   "traveta"
+   "trencaclosques"
+   "trobaria"
+   "únic"
+   "urgència"
+   "útil"
+   "vaixell"
+   "valent"
+   "veloç"
+   "verí"
+   "vertigen"
+   "veuríem"
+   "vianant"
+   "vindria"
+   "vint-i-vuit"
+   "violència"
+   "vivia"
+   "volíem"
+   "voltants"
+   "voltor"
+   "vorera"
+   "xafogor"
+   "xarop"
+   "xerraire"
+   "xiulet"
+   "xoriço"])
+
+(count new-words)
+
+
+(keys vocabulary)
+
+(count (sort (filter (set new-words) (map clojure.string/lower-case (keys vocabulary)))))
+
+(clojure.string/join "," (sort (map clojure.string/lower-case (keys vocabulary))))
+
+(clojure.string/join "," (sort (filter (complement (set (map clojure.string/lower-case (keys vocabulary))))
+                                  (map clojure.string/lower-case new-words))))
 
