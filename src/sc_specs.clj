@@ -41,6 +41,7 @@
           {:name "Jorge"
            :lastname "Jungle"})
 
+;; unq unqualified
 (s/def :unq/person (s/keys :req-un [::name ::lastname]
                            :opt-un [::phone]))
 
